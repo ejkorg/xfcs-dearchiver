@@ -34,7 +34,7 @@ class LotSearchResult(BaseModel):
     db_status: str = ""
     raw_count: int = 0
     stdf_count: int = 0
-    raw_files: List[FileEntry] = []
+    raw_files: List[FileEntry] = Field(default_factory=list)
     active: bool = True
     reason: Optional[str] = None
 

@@ -1,34 +1,65 @@
-# xfcs-dearchiver (migration scaffold)
+# xfcs-dearchiver – FastAPI + Vue (Vite)
 
-This branch adds a modern FastAPI backend and Vue 3 + Vite frontend scaffold to replace legacy CGI + frames.
+This branch contains a modern FastAPI backend and a Vue 3 + Vite frontend, porting the legacy CGI flow to a typed, testable SPA + REST architecture.
 
-## Layout
-- `backend/`: FastAPI app with basic endpoints and docs.
-- `frontend/`: Vue 3 + Vite SPA scaffold. Dev server proxies `/api` to backend.
-- `tests/`: Minimal pytest for backend health.
+## Project layout
+- `backend/` – FastAPI app, pydantic settings, services, and endpoints
+- `frontend/` – Vue 3 app (Vite). Dev server proxies `/api` to the backend on port 8000
+- `mock/` – Small mock dataset and `mock_env.conf` for local/dev testing
+- `tests/` – Pytest suite (includes a mock-backed search test)
 
-## Quickstart
+## Backend quickstart (with mock data)
 
-Backend (FastAPI):
+Create a virtualenv and install deps:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload --port 8000
+pip install -e .[dev]
 ```
 
-Frontend (Vue + Vite):
+Run FastAPI using the mock dataset:
+
+```bash
+XFCS__ARCHIVES_ROOT=$(pwd)/mock/archives \
+XFCS__DATA_ROOT=$(pwd)/mock/data \
+XFCS__ENVS_CONFIG=$(pwd)/mock/mock_env.conf \
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Check health:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+Example search request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/archive/search \
+	-H 'Content-Type: application/json' \
+	-d '{"criteria":[{"lot_id":"FAKELOT123","env":"demo_sort_eagle","year":2020,"month":"Jan"}]}'
+```
+
+## Frontend quickstart
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Then open http://localhost:5173 and test the search form; it calls `/api/lotid`.
+Open http://localhost:5173. The dev server proxies `/api` to `http://127.0.0.1:8000`.
 
-## Next steps
-- Port each CGI in `cgi-bin/` into typed FastAPI routes.
-- Replace frames with Vue Router views and move static assets into `frontend/public/` or `src/assets/`.
-- Add Pydantic models and error handling. Write tests for each endpoint.
+## Run tests
+
+```bash
+source .venv/bin/activate
+pytest -q
+```
+
+CI runs backend tests and frontend build on pushes and pull requests (see `.github/workflows/ci.yml`).
+
+## Notes
+- Configuration sources precedence: init kwargs > environment variables (supports both `XFCS__FIELD` and `XFCS_FIELD`) > YAML (`backend/config.yaml`) > dotenv > file secrets.
+- The `mock/` tree includes a small reproducible dataset so searches (e.g., `FAKELOT123`) return a result.

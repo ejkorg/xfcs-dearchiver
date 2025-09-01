@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from .config import settings
+from .config import Settings
 
 
 @dataclass
@@ -35,7 +35,8 @@ def _parse_env_name(env: str, site: str) -> Tuple[str, str, str]:
     return plant, area, tester
 
 
-def load_envs(config_path: Path | None = None) -> Dict[str, EnvRecord]:
+def load_envs(config_path: Path | None = None, settings: Settings | None = None) -> Dict[str, EnvRecord]:
+    settings = settings or Settings()
     cfg = config_path or settings.envs_config
     envs: Dict[str, EnvRecord] = {}
     site_map: Dict[str, str] = {}
@@ -77,11 +78,13 @@ def human_size(path: Path) -> str:
     for factor, suffix in units:
         if size >= factor:
             val = size / factor
-            return f"{val:.1f}{suffix}".rstrip("0").rstrip(".") + suffix
+            s = f"{val:.1f}".rstrip("0").rstrip(".")
+            return f"{s}{suffix}"
     return str(size)
 
 
-def find_files(paths: List[Path], lot_patterns: List[str]) -> List[Path]:
+def find_files(paths: List[Path], lot_patterns: List[str], settings: Settings | None = None) -> List[Path]:
+    settings = settings or Settings()
     # Build a find command similar to edbWebDearchive.pl search_archives, but local.
     results: List[Path] = []
     exclude = settings.find_exclude_patterns or []
@@ -111,7 +114,8 @@ def find_files(paths: List[Path], lot_patterns: List[str]) -> List[Path]:
     return unique
 
 
-def reload_file_to_env(file_path: Path) -> int:
+def reload_file_to_env(file_path: Path, settings: Settings | None = None) -> int:
+    settings = settings or Settings()
     # Mimic: copy to data_root/<env>/dearchive, gunzip if needed, move into env folder.
     parts = file_path.parts
     # expect /archives/<site>/<env>/<year>/<month>/<file.gz>
@@ -147,7 +151,8 @@ def reload_file_to_env(file_path: Path) -> int:
     return int(__import__("time").time())
 
 
-def monitor_loaded(envs: Iterable[str], lotids: Iterable[str], since: int) -> List[Tuple[str, str, str, str, bool]]:
+def monitor_loaded(envs: Iterable[str], lotids: Iterable[str], since: int, settings: Settings | None = None) -> List[Tuple[str, str, str, str, bool]]:
+    settings = settings or Settings()
     # Search data_root/<env> for files matching lotids, ignore testplans and .err, approximate statuses.
     import time
 

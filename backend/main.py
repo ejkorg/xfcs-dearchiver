@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from typing import List
+from pathlib import Path
 
 app = FastAPI(title="xfcs-dearchiver API", version="0.1.0")
 
@@ -14,7 +15,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from .config import settings
+from .config import Settings
+
+def get_settings() -> Settings:
+    # construct a fresh Settings so that env var overrides (including test monkeypatch)
+    # are always respected at request time
+    return Settings()
 from .models import (
     EnvInfo,
     FileEntry,
@@ -29,7 +35,8 @@ from .models import (
 )
 from .services import load_envs, find_files, human_size, reload_file_to_env, monitor_loaded
 
-_ENVS = load_envs()
+# Note: We intentionally do not cache envs at import time because tests or runtime
+# may override environment variables after import. We'll load envs on-demand.
 
 
 @app.get("/api/health")
@@ -39,6 +46,8 @@ def health():
 
 @app.get("/api/envs", response_model=List[EnvInfo])
 def list_envs():
+    s = get_settings()
+    _ENVS = load_envs(settings=s)
     results: List[EnvInfo] = []
     for env, rec in _ENVS.items():
         results.append(
@@ -57,11 +66,14 @@ def list_envs():
 @app.post("/api/archive/search", response_model=SearchResponse)
 def search_archive(payload: SearchRequest = Body(...)):
     # Emulate edbWebDearchive.pl -s
+    s = get_settings()
+    _ENVS = load_envs(settings=s)
+    # settings loaded from environment and YAML; envs loaded on-demand
     results: List[LotSearchResult] = []
     # Prepare lotid list for matching
     lot_ids = [c.lot_id.strip().strip("*?") for c in payload.criteria if c.lot_id.strip()]
     # Build paths from env+year+month
-    paths: List[str] = []
+    paths_set = set()
     for c in payload.criteria:
         envs = []
         if c.env == "All":
@@ -87,25 +99,16 @@ def search_archive(payload: SearchRequest = Body(...)):
             if not env_rec:
                 continue
             years_list = years or [str(y) for y in range(env_rec.yr_from, env_rec.yr_to + 1)]
-            months_list = months or settings.months
+            months_list = months or s.months
+            # Always include env root as fallback
+            env_root = s.archives_root / env_rec.site / e
+            paths_set.add(env_root)
             for y in years_list:
                 for m in months_list:
-                    paths.append(str(settings.archives_root / env_rec.site / e / y / m))
-    file_paths = find_files([settings.archives_root / p for p in []], lot_ids)  # placeholder
-    # We precomputed string paths; now search each
-    matched_files: List[str] = []
-    for p in paths:
-        files = find_files([settings.archives_root / ""], lot_ids)  # will be replaced below
-    # A simpler approach: search across archives_root for env/year/month combinations
-    unique_files = []
-    seen = set()
-    for p in paths:
-        local_files = find_files([Path(p)], lot_ids)
-        for f in local_files:
-            if f.name in seen:
-                continue
-            seen.add(f.name)
-            unique_files.append(f)
+                    paths_set.add(s.archives_root / env_rec.site / e / y / m)
+
+    # Search for matching files under the constructed directories
+    unique_files = find_files(list(paths_set), lot_ids, settings=s)
 
     # Aggregate per lotid
     lot_map = {lot: LotSearchResult(lot_id=lot) for lot in lot_ids}
@@ -119,8 +122,18 @@ def search_archive(payload: SearchRequest = Body(...)):
                 lot_rec.raw_files.append(FileEntry(path=str(f), size=size))
                 lot_rec.raw_count += 1
                 # derive env and set active flag
-                parts = f.parts
-                env = parts[3] if len(parts) > 3 else None
+                # Expect: <archives_root>/<site>/<env>/<year>/<month>/<file>
+                env = None
+                try:
+                    rel = f.resolve().relative_to(s.archives_root.resolve())
+                    # rel parts: <site>/<env>/...
+                    if len(rel.parts) >= 2:
+                        env = rel.parts[1]
+                except Exception:
+                    # fallback to heuristic index
+                    parts = f.parts
+                    if len(parts) > 3:
+                        env = parts[3]
                 if env:
                     env_rec = _ENVS.get(env)
                     if env_rec:
@@ -139,7 +152,8 @@ def download_files(files: List[str] = Body(..., embed=True)):
 
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
-    tmp_dir = Path(tempfile.mkdtemp(prefix="xfcs-zip-", dir=str(settings.temp_dir)))
+    s = get_settings()
+    tmp_dir = Path(tempfile.mkdtemp(prefix="xfcs-zip-", dir=str(s.temp_dir)))
     zip_path = tmp_dir / "Exensio_Files.zip"
     try:
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -156,6 +170,7 @@ def download_files(files: List[str] = Body(..., embed=True)):
 def reload_files(payload: ReloadRequest):
     # Copy files into env dearchive and move into env to trigger processing.
     import time
+    s = get_settings()
     envs_to_monitor = set()
     lotids_to_monitor = set()
     first_time: int | None = None
@@ -173,7 +188,7 @@ def reload_files(payload: ReloadRequest):
             if any(ch.isdigit() for ch in token):
                 lotids_to_monitor.add(token)
                 break
-        ts = reload_file_to_env(p)
+        ts = reload_file_to_env(p, settings=s)
         if first_time is None or ts < first_time:
             first_time = ts
     if first_time is None:
@@ -188,7 +203,8 @@ def reload_files(payload: ReloadRequest):
 
 @app.post("/api/monitor", response_model=MonitorResponse)
 def monitor(payload: MonitorRequest):
-    items = monitor_loaded(payload.envs, payload.lotids, payload.reload_time)
+    s = get_settings()
+    items = monitor_loaded(payload.envs, payload.lotids, payload.reload_time, settings=s)
     return MonitorResponse(
         items=[
             MonitorResponseItem(

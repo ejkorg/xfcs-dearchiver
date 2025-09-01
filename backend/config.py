@@ -70,6 +70,34 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    class DualEnvSettingsSource(PydanticBaseSettingsSource):
+        """Custom env source to support both XFCS_FIELD and XFCS__FIELD overrides.
+
+        Some older scripts used a double underscore after the prefix even for top-level
+        fields. This source checks both variants explicitly so tests and runtime can
+        set either form.
+        """
+
+        def __init__(self, settings_cls):
+            super().__init__(settings_cls)
+
+        def __call__(self) -> Dict[str, Any]:
+            data: Dict[str, Any] = {}
+            for field_name in self.settings_cls.model_fields.keys():
+                key_uc = field_name.upper()
+                for k in (f"XFCS__{key_uc}", f"XFCS_{key_uc}"):
+                    if k in os.environ:
+                        data[field_name] = os.environ[k]
+                        break
+            return data
+
+        def get_field_value(self, field, field_name):
+            key_uc = field_name.upper()
+            for k in (f"XFCS__{key_uc}", f"XFCS_{key_uc}"):
+                if k in os.environ:
+                    return os.environ[k], field_name, None
+            return None, field_name, None
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -79,9 +107,10 @@ class Settings(BaseSettings):
         dotenv_settings,
         file_secret_settings,
     ):
-        # Precedence: init kwargs > env vars > YAML > dotenv > file secrets
+        # Precedence: init kwargs > DualEnv (XFCS__FIELD or XFCS_FIELD) > env vars > YAML > dotenv > file secrets
         return (
             init_settings,
+            cls.DualEnvSettingsSource(settings_cls),
             env_settings,
             YamlConfigSettingsSource(settings_cls),
             dotenv_settings,
