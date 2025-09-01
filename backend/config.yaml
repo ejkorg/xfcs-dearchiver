@@ -1,0 +1,21 @@
+archives_root: "/archives"
+data_root: "/apps/exensio_data/data"
+temp_dir: "/tmp/xfcs-dearchiver"
+months:
+  - Jan
+  - Feb
+  - Mar
+  - Apr
+  - May
+  - Jun
+  - Jul
+  - Aug
+  - Sep
+  - Oct
+  - Nov
+  - Dec
+envs_config: "/workspaces/xfcs-dearchiver/env.conf"
+active_check_folder: "Processed"
+find_exclude_patterns:
+  - ".TP"
+  - "_TP"
