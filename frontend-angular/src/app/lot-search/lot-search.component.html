@@ -1,0 +1,58 @@
+<div>
+  <h2>Lot Search</h2>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <mat-form-field appearance="fill" style="flex:1;">
+      <mat-label>Lot IDs (comma or newline separated)</mat-label>
+      <textarea matInput rows="3" [(ngModel)]="lotId" placeholder="C123456, C123457\nOr one per line"></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Site</mat-label>
+      <mat-select [(ngModel)]="selectedSite" (selectionChange)="onSiteChange()">
+        <mat-option *ngFor="let s of sites" [value]="s">{{s}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Plant / Area</mat-label>
+      <mat-select [(ngModel)]="selectedPlantArea" (selectionChange)="onPlantAreaChange()">
+        <mat-option *ngFor="let pa of plantAreas" [value]="pa">{{pa}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Env</mat-label>
+      <mat-select [(ngModel)]="selectedEnv">
+        <mat-option *ngFor="let e of filteredEnvs" [value]="e.name">{{e.name}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="selectedYear">
+        <mat-option *ngFor="let y of years" [value]="y">{{y}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Month</mat-label>
+      <mat-select [(ngModel)]="selectedMonth">
+        <mat-option *ngFor="let m of months" [value]="m">{{m}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="search()" [disabled]="loading">Search</button>
+  </div>
+  <div *ngIf="envs.length">
+    <h3>Envs</h3>
+    <ul>
+      <li *ngFor="let e of envs">{{e.name}} ({{e.site}})</li>
+    </ul>
+  </div>
+  <div *ngIf="loading">Searching...</div>
+  <div *ngIf="!loading && envs.length===0">No envs available.</div>
+  <div *ngIf="!loading">
+    <h3>Results</h3>
+    <table *ngIf="false"><!-- placeholder for future table --></table>
+  </div>
+</div>

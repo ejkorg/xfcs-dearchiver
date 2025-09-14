@@ -1,0 +1,60 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, feature/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: frontend-angular/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/frontend-angular/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache Puppeteer chromium
+        uses: actions/cache@v4
+        with:
+          path: frontend-angular/node_modules/puppeteer/.local-chromium
+          key: ${{ runner.os }}-puppeteer-${{ hashFiles('**/frontend-angular/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-puppeteer-
+
+      - name: Install dependencies
+        working-directory: frontend-angular
+        run: |
+          npm ci
+
+      - name: Build
+        working-directory: frontend-angular
+        run: |
+          npm run build --if-present
+
+      - name: Run unit tests (headless) - prefer Puppeteer
+        working-directory: frontend-angular
+        env:
+          CI: true
+        run: |
+          # If Puppeteer's local Chromium exists, use it; otherwise fall back to system chromium
+          if [ -d "node_modules/puppeteer/.local-chromium" ]; then
+            export CHROME_BIN=$(ls -d node_modules/puppeteer/.local-chromium/*/chrome-linux/chrome | head -n1)
+          else
+            export CHROME_BIN=/usr/bin/chromium-browser
+          fi
+          echo "Using CHROME_BIN=$CHROME_BIN"
+          # Run ng test directly so our exported CHROME_BIN is used (avoid test:ci overriding it)
+          # When running in CI, karma.conf.js will select the ChromeHeadlessNoSandbox launcher.
+          npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
