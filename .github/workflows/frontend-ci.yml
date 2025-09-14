@@ -38,7 +38,8 @@ jobs:
       - name: Run unit tests (headless)
         working-directory: frontend-angular
         env:
-          CHROME_BIN: /usr/bin/chromium-browser
+          # prefer using Puppeteer's binary fetched as a devDependency
+          CI: true
         run: |
-          # run tests once in headless mode
-          npm test -- --watch=false
+          # run the CI-safe test script (uses Puppeteer local binary)
+          npm run test:ci
