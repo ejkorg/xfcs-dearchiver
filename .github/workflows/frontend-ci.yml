@@ -56,4 +56,5 @@ jobs:
           fi
           echo "Using CHROME_BIN=$CHROME_BIN"
           # Run ng test directly so our exported CHROME_BIN is used (avoid test:ci overriding it)
-          npx ng test --watch=false --browsers=ChromeHeadless
+          # When running in CI, karma.conf.js will select the ChromeHeadlessNoSandbox launcher.
+          npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox

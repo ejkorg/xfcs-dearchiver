@@ -1,4 +1,6 @@
 module.exports = function (config) {
+  const isCI = !!process.env.CI;
+
   config.set({
     basePath: '',
     frameworks: ['jasmine', '@angular-devkit/build-angular'],
@@ -15,7 +17,22 @@ module.exports = function (config) {
     colors: true,
     logLevel: config.LOG_INFO,
     autoWatch: false,
-    browsers: ['ChromeHeadless'],
+    // Use a no-sandbox launcher in CI to avoid "No usable sandbox" errors on some runners.
+    customLaunchers: {
+      ChromeHeadlessNoSandbox: {
+        base: 'ChromeHeadless',
+        flags: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-translate',
+          '--disable-gpu',
+          '--headless',
+          '--mute-audio'
+        ]
+      }
+    },
+    browsers: isCI ? ['ChromeHeadlessNoSandbox'] : ['ChromeHeadless'],
     singleRun: true,
     restartOnFileChange: false
   });
