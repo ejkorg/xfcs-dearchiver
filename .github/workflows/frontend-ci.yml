@@ -38,8 +38,9 @@ jobs:
       - name: Run unit tests (headless)
         working-directory: frontend-angular
         env:
-          # prefer using Puppeteer's binary fetched as a devDependency
+          # use system Chromium installed by apt so Karma can find the binary
           CI: true
+          CHROME_BIN: /usr/bin/chromium-browser
         run: |
-          # run the CI-safe test script (uses Puppeteer local binary)
-          npm run test:ci
+          # run tests with Karma using the system Chromium binary
+          npm run test -- --watch=false --browsers=ChromeHeadless
