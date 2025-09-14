@@ -17,30 +17,43 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: frontend-angular/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/frontend-angular/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: Install Chromium (for headless tests)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser
+      - name: Cache Puppeteer chromium
+        uses: actions/cache@v4
+        with:
+          path: frontend-angular/node_modules/puppeteer/.local-chromium
+          key: ${{ runner.os }}-puppeteer-${{ hashFiles('**/frontend-angular/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-puppeteer-
 
       - name: Install dependencies
         working-directory: frontend-angular
         run: |
-          CHROME_BIN=/usr/bin/chromium-browser npm ci
+          npm ci
 
       - name: Build
         working-directory: frontend-angular
-        env:
-          CHROME_BIN: /usr/bin/chromium-browser
         run: |
           npm run build --if-present
 
-      - name: Run unit tests (headless)
+      - name: Run unit tests (headless) - prefer Puppeteer
         working-directory: frontend-angular
         env:
-          # use system Chromium installed by apt so Karma can find the binary
           CI: true
-          CHROME_BIN: /usr/bin/chromium-browser
         run: |
-          # run tests with Karma using the system Chromium binary
-          npm run test -- --watch=false --browsers=ChromeHeadless
+          # If Puppeteer's local Chromium exists, use it; otherwise fall back to system chromium
+          if [ -d "node_modules/puppeteer/.local-chromium" ]; then
+            export CHROME_BIN=$(ls -d node_modules/puppeteer/.local-chromium/*/chrome-linux/chrome | head -n1)
+          else
+            export CHROME_BIN=/usr/bin/chromium-browser
+          fi
+          echo "Using CHROME_BIN=$CHROME_BIN"
+          # prefer test:ci which sets CHROME_BIN to Puppeteer path, but pass it explicitly too
+          npm run test:ci
