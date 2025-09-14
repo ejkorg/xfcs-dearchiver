@@ -44,6 +44,15 @@ To execute unit tests with the [Karma](https://karma-runner.github.io) test runn
 ng test
 ```
 
+Notes for running tests in headless CI or containers:
+
+- The test runner needs a headless browser. In CI you can either:
+	- Use a system-installed Chrome/Chromium and set `CHROME_BIN` to the binary path, e.g. `CHROME_BIN=/usr/bin/chromium-browser ng test --watch=false`.
+	- Use Puppeteer's bundled Chromium: ensure `npm ci` installs Puppeteer (or run `npx puppeteer install`) and run the project's `test:ci` script which attempts to use the Puppeteer binary.
+
+- In some minimal containers (like this dev environment) Chrome/Chromium may not be available or Puppeteer's binary may not be downloaded; if so, tests will fail to start the browser. Running tests on CI (GitHub Actions, GitLab CI, etc.) with a Chrome image is recommended.
+
+
 ## Running end-to-end tests
 
 For end-to-end (e2e) testing, run:

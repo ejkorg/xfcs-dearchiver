@@ -1,9 +1,9 @@
 <div>
   <h2>Lot Search</h2>
   <div style="display:flex;gap:8px;align-items:center;">
-    <mat-form-field appearance="fill">
-      <mat-label>Lot ID</mat-label>
-      <input matInput [(ngModel)]="lotId" placeholder="Lot ID" />
+    <mat-form-field appearance="fill" style="flex:1;">
+      <mat-label>Lot IDs (comma or newline separated)</mat-label>
+      <textarea matInput rows="3" [(ngModel)]="lotId" placeholder="C123456, C123457\nOr one per line"></textarea>
     </mat-form-field>
 
     <mat-form-field appearance="fill">
@@ -31,6 +31,13 @@
       <mat-label>Year</mat-label>
       <mat-select [(ngModel)]="selectedYear">
         <mat-option *ngFor="let y of years" [value]="y">{{y}}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Month</mat-label>
+      <mat-select [(ngModel)]="selectedMonth">
+        <mat-option *ngFor="let m of months" [value]="m">{{m}}</mat-option>
       </mat-select>
     </mat-form-field>
 

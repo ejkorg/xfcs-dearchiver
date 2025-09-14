@@ -10,7 +10,7 @@ import { CommonModule } from '@angular/common';
 import { AppComponent } from './app.component';
 
 @NgModule({
-  imports: [CommonModule, BrowserModule, HttpClientModule, FormsModule, BrowserAnimationsModule, MatToolbarModule, MatButtonModule, AppComponent],
+  imports: [CommonModule, BrowserModule, HttpClientModule, FormsModule, BrowserAnimationsModule, MatToolbarModule, MatButtonModule],
   providers: [],
   bootstrap: [AppComponent],
 })

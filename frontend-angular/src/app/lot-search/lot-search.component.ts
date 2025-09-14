@@ -15,6 +15,7 @@ import { ApiService } from '../api.service';
 })
 export class LotSearchComponent {
   lotId = '';
+  // env objects returned by backend are normalized into camelCase here
   envs: any[] = [];
   sites: string[] = [];
   years: string[] = [];
@@ -24,6 +25,8 @@ export class LotSearchComponent {
   selectedEnv: string = 'All';
   selectedYear: string = 'All';
   selectedPlantArea: string = 'All';
+  months: string[] = ['All','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  selectedMonth: string = 'All';
   loading = false;
   @Output() searchComplete = new EventEmitter<any>();
   constructor(private api: ApiService) {}
@@ -38,13 +41,24 @@ export class LotSearchComponent {
 
   ngOnInit() {
     this.api.envs().subscribe((r:any) => {
-      this.envs = r || [];
+      const raw = r || [];
+      // normalize backend snake_case fields to camelCase expected by the component
+      this.envs = raw.map((e: any) => ({
+        name: e.name,
+        site: e.site,
+        yrFrom: e.yr_from ?? e.yrFrom ?? 0,
+        yrTo: e.yr_to ?? e.yrTo ?? 0,
+        active: e.active,
+        tester: e.tester,
+        plant: e.plant ?? '',
+        area: e.area ?? '',
+      }));
       const sites = new Set<string>();
-      this.envs.forEach(e => sites.add(e.site));
+      this.envs.forEach((e: any) => sites.add(e.site));
       this.sites = ['All', ...Array.from(sites)];
       // Build plant_area mapping similar to CGI: plant_area => [env names]
       const paSet = new Set<string>();
-      this.envs.forEach(e => {
+      this.envs.forEach((e: any) => {
         const paKey = `${e.plant}_${e.area}`;
         paSet.add(paKey);
         if (!this.paMap[paKey]) this.paMap[paKey] = [];
@@ -62,11 +76,11 @@ export class LotSearchComponent {
       this.selectedYear = 'All';
       return;
     }
-    const envsForSite = this.envs.filter(e => e.site === this.selectedSite).map(e => e.name);
+    const envsForSite = this.envs.filter((e: any) => e.site === this.selectedSite).map((e: any) => e.name);
     this.selectedEnv = envsForSite.length ? envsForSite[0] : 'All';
-    const rec = this.envs.find(e => e.name === this.selectedEnv);
+    const rec = this.envs.find((e: any) => e.name === this.selectedEnv);
     if (rec) {
-      const yrs = [];
+      const yrs: string[] = [];
       for (let y = rec.yrFrom; y <= rec.yrTo; y++) yrs.push(String(y));
       this.years = ['All', ...yrs];
       this.selectedYear = 'All';
@@ -87,10 +101,10 @@ export class LotSearchComponent {
     const envNames = this.paMap[this.selectedPlantArea] || [];
     this.selectedEnv = envNames.length ? envNames[0] : 'All';
     // set selectedSite based on first env's site
-    const rec = this.envs.find(e => e.name === this.selectedEnv);
+    const rec = this.envs.find((e: any) => e.name === this.selectedEnv);
     if (rec) {
       this.selectedSite = rec.site;
-      const yrs = [];
+      const yrs: string[] = [];
       for (let y = rec.yrFrom; y <= rec.yrTo; y++) yrs.push(String(y));
       this.years = ['All', ...yrs];
       this.selectedYear = 'All';
@@ -100,14 +114,24 @@ export class LotSearchComponent {
     }
   }
 
+  parseLots(): string[] {
+    return (this.lotId || '')
+      .split(/\n|,/) // newline or comma separated
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  buildCriteria() {
+    const lots = this.parseLots();
+    const c: any[] = [];
+    for (const lot of lots) {
+  c.push({ lot_id: lot, env: this.selectedEnv || 'All', year: this.selectedYear || 'All', month: this.selectedMonth || 'All' });
+    }
+    return c;
+  }
+
   search() {
-    const crit = {
-      lotId: this.lotId,
-      env: this.selectedEnv || 'All',
-      year: this.selectedYear || 'All',
-      month: 'All'
-    };
-    const payload = { criteria: [crit] };
+    const payload = { criteria: this.buildCriteria() };
     this.loading = true;
     this.api.search(payload).subscribe({
       next: (r:any) => { this.loading = false; this.searchComplete.emit({ results: r.results || [] }); },

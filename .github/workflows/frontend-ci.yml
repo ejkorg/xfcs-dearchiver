@@ -1,0 +1,41 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, feature/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Chromium (for headless tests)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+
+      - name: Install dependencies
+        run: |
+          CHROME_BIN=/usr/bin/chromium-browser npm ci
+
+      - name: Build
+        env:
+          CHROME_BIN: /usr/bin/chromium-browser
+        run: |
+          npm run build --if-present
+
+      - name: Run unit tests (headless)
+        env:
+          CHROME_BIN: /usr/bin/chromium-browser
+        run: |
+          # run tests once in headless mode
+          npm test -- --watch=false
