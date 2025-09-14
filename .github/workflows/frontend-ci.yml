@@ -55,5 +55,5 @@ jobs:
             export CHROME_BIN=/usr/bin/chromium-browser
           fi
           echo "Using CHROME_BIN=$CHROME_BIN"
-          # prefer test:ci which sets CHROME_BIN to Puppeteer path, but pass it explicitly too
-          npm run test:ci
+          # Run ng test directly so our exported CHROME_BIN is used (avoid test:ci overriding it)
+          npx ng test --watch=false --browsers=ChromeHeadless
