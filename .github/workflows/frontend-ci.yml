@@ -24,16 +24,19 @@ jobs:
           sudo apt-get install -y chromium-browser
 
       - name: Install dependencies
+        working-directory: frontend-angular
         run: |
           CHROME_BIN=/usr/bin/chromium-browser npm ci
 
       - name: Build
+        working-directory: frontend-angular
         env:
           CHROME_BIN: /usr/bin/chromium-browser
         run: |
           npm run build --if-present
 
       - name: Run unit tests (headless)
+        working-directory: frontend-angular
         env:
           CHROME_BIN: /usr/bin/chromium-browser
         run: |
